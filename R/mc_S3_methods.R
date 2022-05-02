@@ -369,6 +369,8 @@ print.mcglm <- function(x, ...) {
         cat("Call: ")
         print(object$linear_pred[[i]])
         cat("\n")
+        cat("Penalization:", object$penalization[[i]])
+        cat("\n")
         cat("Link function:", object$link[[i]])
         cat("\n")
         cat("Variance function:", object$variance[[i]])

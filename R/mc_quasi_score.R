@@ -16,11 +16,18 @@
 #'     matrices.
 #' @export
 
-mc_quasi_score <- function(D, inv_C, y_vec, mu_vec, W) {
+mc_quasi_score <- function(D, inv_C, y_vec, mu_vec, W, pen_vec) {
     res <- y_vec - mu_vec
     t_D <- t(D)
     part1 <- t_D %*% inv_C
     score <- part1 %*% W %*% res
+    print("Score sem penalização")
+    print(score)
+    score <- part1 %*% W %*% res + pen_vec
+    print("Score penalizado")
+    print(score)
+    print("Vetor de penalização")
+    print(pen_vec)
     sensitivity <- -part1 %*% W %*% D
     variability <- part1 %*% W^2 %*% D
     output <- list(Score = score, Sensitivity = sensitivity,

@@ -75,13 +75,11 @@
 #' @importFrom grDevices dev.new
 #' @export
 
-fit_mcglm <- function(list_initial, list_link, list_variance,
-                      list_covariance, list_X, list_Z,
-                      list_offset, list_Ntrial, list_power_fixed,
-                      list_sparse, y_vec,
-                      correct = FALSE, max_iter, tol = 0.001,
-                      method = "rc",
-                      tuning = 0, verbose, weights) {
+fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
+                      list_variance, list_covariance, list_X, list_Z,
+                      list_offset, list_Ntrial, list_power_fixed, list_sparse,
+                      y_vec, correct = FALSE, max_iter, tol = 0.001,
+                      method = "rc", tuning = 0, verbose, weights) {
     ## Diagonal matrix with weights
     W <- Diagonal(length(y_vec), weights)
     ## Transformation from list to vector
@@ -107,48 +105,51 @@ fit_mcglm <- function(list_initial, list_link, list_variance,
         mu_list <- Map(mc_link_function, beta = list_initial$regression,
                        offset = list_offset, X = list_X, link = list_link)
         mu_vec <- do.call(c, lapply(mu_list, function(x) x$mu))
+        pen_list <- Map(mc_penalization, beta = list_initial$regression,
+                        gamma = gamma, penalization = list_penalization) 
+        pen_vec <- do.call(c, pen_list)
         D <- bdiag(lapply(mu_list, function(x) x$D))
-        # Step 1.2 - Computing the inverse of C matrix.
-        # I should improve this step.
-        # I have to write a new function to compute
-        # only C or inv_C to be more efficient in this step.
+                                        # Step 1.2 - Computing the inverse of C matrix.
+                                        # I should improve this step.
+                                        # I have to write a new function to compute
+                                        # only C or inv_C to be more efficient in this step.
         Cfeatures <- mc_build_C(list_mu = mu_list,
                                 list_Ntrial = list_Ntrial,
                                 rho = list_initial$rho,
                                 list_tau = list_initial$tau,
-            list_power = list_initial$power, list_Z = list_Z,
-            list_sparse = list_sparse, list_variance = list_variance,
-            list_covariance = list_covariance,
-            list_power_fixed = list_power_fixed, compute_C = FALSE,
-            compute_derivative_beta = FALSE,
-            compute_derivative_cov = FALSE)
-        # Step 1.3 - Update the regression parameters
+                                list_power = list_initial$power, list_Z = list_Z,
+                                list_sparse = list_sparse, list_variance = list_variance,
+                                list_covariance = list_covariance,
+                                list_power_fixed = list_power_fixed, compute_C = FALSE,
+                                compute_derivative_beta = FALSE,
+                                compute_derivative_cov = FALSE)
+                                        # Step 1.3 - Update the regression parameters
         beta_temp <- mc_quasi_score(D = D, inv_C = Cfeatures$inv_C,
                                     y_vec = y_vec, mu_vec = mu_vec,
-                                    W = W)
+                                    pen_vec = pen_vec, W = W)
         solucao_beta[i, ] <- as.numeric(beta_ini - solve(beta_temp$Sensitivity, beta_temp$Score))
         score_beta_temp[i, ] <- as.numeric(beta_temp$Score)
         list_initial <- mc_updateBeta(list_initial, solucao_beta[i, ],
                                       information = inf, n_resp = n_resp)
-        # Step 1.4 - Updated the mean structure to use in the Pearson
-        # estimating function step.
+                                        # Step 1.4 - Updated the mean structure to use in the Pearson
+                                        # estimating function step.
         mu_list <- Map(mc_link_function, beta = list_initial$regression,
                        offset = list_offset, X = list_X, link = list_link)
         mu_vec <- do.call(c, lapply(mu_list, function(x) x$mu))
         D <- bdiag(lapply(mu_list, function(x) x$D))
-        # Step 2 - Updating the covariance parameters
+                                        # Step 2 - Updating the covariance parameters
         Cfeatures <- mc_build_C(list_mu = mu_list,
                                 list_Ntrial = list_Ntrial,
                                 rho = list_initial$rho,
                                 list_tau = list_initial$tau,
-            list_power = list_initial$power, list_Z = list_Z,
-            list_sparse = list_sparse, list_variance = list_variance,
-            list_covariance = list_covariance,
-            list_power_fixed = list_power_fixed, compute_C = TRUE,
-            compute_derivative_beta = FALSE)
-        # Step 2.1 - Using beta(i+1)
-        #beta_temp2 <- mc_quasi_score(D = D, inv_C = Cfeatures$inv_C,
-        #y_vec = y_vec, mu_vec =  mu_vec)
+                                list_power = list_initial$power, list_Z = list_Z,
+                                list_sparse = list_sparse, list_variance = list_variance,
+                                list_covariance = list_covariance,
+                                list_power_fixed = list_power_fixed, compute_C = TRUE,
+                                compute_derivative_beta = FALSE)
+                                        # Step 2.1 - Using beta(i+1)
+                                        #beta_temp2 <- mc_quasi_score(D = D, inv_C = Cfeatures$inv_C,
+                                        #y_vec = y_vec, mu_vec =  mu_vec)
         inv_J_beta <- solve(beta_temp$Sensitivity)
         if (method == "chaser") {
             cov_temp <- mc_pearson(y_vec = y_vec, mu_vec = mu_vec,
@@ -160,13 +161,13 @@ fit_mcglm <- function(list_initial, list_link, list_variance,
             step <- tuning * solve(cov_temp$Sensitivity, cov_temp$Score)
         }
         if(method == "gradient") {
-        cov_temp <- mc_pearson(y_vec = y_vec, mu_vec = mu_vec,
-                                 Cfeatures = Cfeatures,
-                                 inv_J_beta = inv_J_beta, D = D,
-                                 correct = correct,
-                                 compute_sensitivity = FALSE,
-                                 compute_variability = FALSE, W = W)
-          step <- tuning * cov_temp$Score
+            cov_temp <- mc_pearson(y_vec = y_vec, mu_vec = mu_vec,
+                                   Cfeatures = Cfeatures,
+                                   inv_J_beta = inv_J_beta, D = D,
+                                   correct = correct,
+                                   compute_sensitivity = FALSE,
+                                   compute_variability = FALSE, W = W)
+            step <- tuning * cov_temp$Score
         }
         if (method == "rc") {
             cov_temp <- mc_pearson(y_vec = y_vec, mu_vec = mu_vec,
@@ -176,7 +177,7 @@ fit_mcglm <- function(list_initial, list_link, list_variance,
                                    compute_variability = TRUE, W = W)
             step <- solve(tuning * cov_temp$Score %*% t(cov_temp$Score)
                           %*% solve(cov_temp$Variability) %*%
-                            cov_temp$Sensitivity + cov_temp$Sensitivity)%*% cov_temp$Score
+                              cov_temp$Sensitivity + cov_temp$Sensitivity)%*% cov_temp$Score
         }
         ## Step 2.2 - Updating the covariance parameters
         score_disp_temp[i, ] <- cov_temp$Score
@@ -197,16 +198,19 @@ fit_mcglm <- function(list_initial, list_link, list_variance,
         cov_ini <- cov_next
         solucao_cov[i, ] <- cov_next
         ## Checking the convergence
-        #sol = abs(c(solucao_beta[i, ], solucao_cov[i, ]))
+                                        #sol = abs(c(solucao_beta[i, ], solucao_cov[i, ]))
         tolera <- abs(c(solucao_beta[i, ], solucao_cov[i, ]) - c(solucao_beta[i - 1, ], solucao_cov[i - 1, ]))
-        #tolera <- tolera/sol
-        # if(verbose == TRUE){print(round(tolera, 4))}
+                                        #tolera <- tolera/sol
+                                        # if(verbose == TRUE){print(round(tolera, 4))}
         if (all(tolera <= tol) == TRUE)
             break
     }
     mu_list <- Map(mc_link_function, beta = list_initial$regression,
                    offset = list_offset, X = list_X, link = list_link)
     mu_vec <- do.call(c, lapply(mu_list, function(x) x$mu))
+    pen_list <- Map(mc_penalization, beta = list_initial$regression,
+                    gamma = gamma, penalization = list_penalization) 
+    pen_vec <- do.call(c, pen_list)
     D <- bdiag(lapply(mu_list, function(x) x$D))
     Cfeatures <- mc_build_C(list_mu = mu_list, list_Ntrial = list_Ntrial,
                             rho = list_initial$rho,
@@ -219,14 +223,15 @@ fit_mcglm <- function(list_initial, list_link, list_variance,
                             compute_C = TRUE,
                             compute_derivative_beta = FALSE)
     beta_temp2 <- mc_quasi_score(D = D, inv_C = Cfeatures$inv_C,
-                                 y_vec = y_vec, mu_vec = mu_vec, W = W)
+                                 y_vec = y_vec, mu_vec = mu_vec, W = W,
+                                 pen_vec = pen_vec)
     inv_J_beta <- solve(beta_temp2$Sensitivity)
 
     cov_temp <- mc_pearson(y_vec = y_vec, mu_vec = mu_vec,
                            Cfeatures = Cfeatures, inv_J_beta = inv_J_beta,
                            D = D, correct = correct,
                            compute_variability = TRUE, W = W)
-    #### Here I need to compute the cross-sensitivity and variability
+#### Here I need to compute the cross-sensitivity and variability
     inv_CW <- Cfeatures$inv_C%*%W
     Product_beta <- lapply(Cfeatures$D_C_beta, mc_multiply,
                            bord2 = inv_CW)
@@ -240,8 +245,8 @@ fit_mcglm <- function(list_initial, list_link, list_variance,
     p2 <- rbind(V_cov_beta, cov_temp$Variability)
     joint_variability <- cbind(p1, p2)
     inv_S_beta <- inv_J_beta
-    # Problem 1 x 1 matrix
-    # IMPROVE IT
+                                        # Problem 1 x 1 matrix
+                                        # IMPROVE IT
     inv_S_cov <- solve(as.matrix(cov_temp$Sensitivity))
     mat0 <- Matrix(0, ncol = dim(S_cov_beta)[1], nrow = dim(S_cov_beta)[2])
     cross_term <- -inv_S_cov %*% S_cov_beta %*% inv_S_beta
