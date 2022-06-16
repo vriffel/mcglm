@@ -57,7 +57,5 @@ mc_pearson <- function(y_vec, mu_vec, Cfeatures, inv_J_beta = NULL,
                                       C = Cfeatures$C, res = res, W = W)
         output$Variability <- variability
     }
-    print(pen_vec_cov)
-    diag(pen_vec2_cov)
     return(output)
 }
