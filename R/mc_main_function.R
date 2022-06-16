@@ -65,9 +65,9 @@
 #' @import Matrix
 
 mcglm <- function(linear_pred, matrix_pred, link, variance, covariance,
-                  penalization, gamma, offset, Ntrial, power_fixed, data,
-                  control_initial = "automatic", contrasts = NULL,
-                  weights = NULL, control_algorithm = list()) {
+                  penalization, penalization_cov, gamma, gamma_cov, offset,
+                  Ntrial, power_fixed, data, control_initial = "automatic",
+                  contrasts = NULL, weights = NULL, control_algorithm = list()) {
     n_resp <- length(linear_pred)
     linear_pred <- as.list(linear_pred)
     matrix_pred <- as.list(matrix_pred)
@@ -76,6 +76,12 @@ mcglm <- function(linear_pred, matrix_pred, link, variance, covariance,
     }
     if (missing(gamma)) {
         gamma <- 0
+    }
+    if (missing(penalization_cov)) {
+        penalization_cov <- rep("none", n_resp)
+    }
+    if (missing(gamma_cov)) {
+        gamma_cov <- 0
     }
     if (missing(link)) {
         link <- rep("identity", n_resp)
@@ -99,6 +105,7 @@ mcglm <- function(linear_pred, matrix_pred, link, variance, covariance,
         contrasts <- NULL
     }
     penalization <- as.list(penalization)
+    penalization_cov <- as.list(penalization_cov)
     link <- as.list(link)
     variance <- as.list(variance)
     covariance <- as.list(covariance)
@@ -152,7 +159,9 @@ mcglm <- function(linear_pred, matrix_pred, link, variance, covariance,
     })
     model_fit <- try(fit_mcglm(list_initial = control_initial,
                                list_penalization = penalization,
+                               list_penalization_cov = penalization_cov,
                                gamma = gamma,
+                               gamma_cov = gamma_cov,
                                list_link = link,
                                list_variance = variance,
                                list_covariance = covariance,
@@ -173,6 +182,7 @@ mcglm <- function(linear_pred, matrix_pred, link, variance, covariance,
         model_fit$list_initial <- control_initial
         model_fit$n_obs <- dim(data)[1]
         model_fit$penalization <- penalization
+        model_fit$penalization_cov <- penalization_cov
         model_fit$link <- link
         model_fit$variance <- variance
         model_fit$covariance <- covariance

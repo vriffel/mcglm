@@ -25,16 +25,20 @@ mc_pearson <- function(y_vec, mu_vec, Cfeatures, inv_J_beta = NULL,
                        D = NULL, correct = FALSE,
                        compute_sensitivity = TRUE,
                        compute_variability = FALSE,
-                       W) {
+                       W,
+                       pen_vec_cov,
+                       pen_vec2_cov) {
     product <- lapply(Cfeatures$D_C, mc_multiply,
                       bord2 = Cfeatures$inv_C)
     res <- y_vec - mu_vec
     pearson_score <- unlist(lapply(product, mc_core_pearson,
-                                   inv_C = Cfeatures$inv_C, res = res, W = W))
+                                   inv_C = Cfeatures$inv_C, res = res, W = W)) + pen_vec_cov
 
     sensitivity <- matrix(NA, length(product), length(product))
     if(compute_sensitivity == TRUE) {
-      sensitivity <- mc_sensitivity(product, W = W)
+        m_pen <- diag(pen_vec2_cov, nrow = length(pen_vec2_cov))
+        m_pen[is.nan(m_pen)] <- 0
+      sensitivity <- mc_sensitivity(product, W = W) + m_pen
     }
 
     output <- list(Score = pearson_score, Sensitivity = sensitivity,
@@ -53,5 +57,7 @@ mc_pearson <- function(y_vec, mu_vec, Cfeatures, inv_J_beta = NULL,
                                       C = Cfeatures$C, res = res, W = W)
         output$Variability <- variability
     }
+    print(pen_vec_cov)
+    diag(pen_vec2_cov)
     return(output)
 }

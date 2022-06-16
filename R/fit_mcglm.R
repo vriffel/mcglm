@@ -75,7 +75,8 @@
 #' @importFrom grDevices dev.new
 #' @export
 
-fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
+fit_mcglm <- function(list_initial, list_penalization, list_penalization_cov,
+                      gamma = gamma, gamma_cov = gamma_cov, list_link,
                       list_variance, list_covariance, list_X, list_Z,
                       list_offset, list_Ntrial, list_power_fixed, list_sparse,
                       y_vec, correct = FALSE, max_iter, tol = 0.001,
@@ -106,8 +107,15 @@ fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
                        offset = list_offset, X = list_X, link = list_link)
         mu_vec <- do.call(c, lapply(mu_list, function(x) x$mu))
         pen_list <- Map(mc_penalization, beta = list_initial$regression,
-                        gamma = gamma, penalization = list_penalization) 
-        pen_vec <- do.call(c, pen_list)
+                        gamma = gamma, penalization = list_penalization)
+        pen_list_cov <- Map(mc_penalization, beta = list_initial$tau,
+                            gamma = gamma_cov, penalization = list_penalization_cov)
+        ## pen_vec <- do.call(c, pen_list)
+        pen_vec <- do.call(c, lapply(pen_list, function(x) x$first))
+        pen_vec2 <- do.call(c, lapply(pen_list, function(x) x$second))
+        pen_vec_cov <- do.call(c, lapply(pen_list_cov, function(x) x$first))
+        pen_vec2_cov <- do.call(c, lapply(pen_list_cov, function(x) x$second))
+        ## pen_vec2 <- lasso2(gamma = gamma, beta = unlist(list_initial$regression))
         D <- bdiag(lapply(mu_list, function(x) x$D))
                                         # Step 1.2 - Computing the inverse of C matrix.
                                         # I should improve this step.
@@ -126,7 +134,7 @@ fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
                                         # Step 1.3 - Update the regression parameters
         beta_temp <- mc_quasi_score(D = D, inv_C = Cfeatures$inv_C,
                                     y_vec = y_vec, mu_vec = mu_vec,
-                                    pen_vec = pen_vec, W = W)
+                                    pen_vec = pen_vec, W = W, pen_vec2 = pen_vec2)
         solucao_beta[i, ] <- as.numeric(beta_ini - solve(beta_temp$Sensitivity, beta_temp$Score))
         score_beta_temp[i, ] <- as.numeric(beta_temp$Score)
         list_initial <- mc_updateBeta(list_initial, solucao_beta[i, ],
@@ -157,7 +165,9 @@ fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
                                    inv_J_beta = inv_J_beta, D = D,
                                    correct = correct,
                                    compute_variability = FALSE,
-                                   W = W)
+                                   W = W,
+                                   pen_vec_cov = pen_vec_cov,
+                                   pen_vec2_cov = pen_vec2_cov)
             step <- tuning * solve(cov_temp$Sensitivity, cov_temp$Score)
         }
         if(method == "gradient") {
@@ -197,6 +207,7 @@ fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
         beta_ini <- solucao_beta[i, ]
         cov_ini <- cov_next
         solucao_cov[i, ] <- cov_next
+        ## print(round(beta_ini, 3))
         ## Checking the convergence
                                         #sol = abs(c(solucao_beta[i, ], solucao_cov[i, ]))
         tolera <- abs(c(solucao_beta[i, ], solucao_cov[i, ]) - c(solucao_beta[i - 1, ], solucao_cov[i - 1, ]))
@@ -209,8 +220,11 @@ fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
                    offset = list_offset, X = list_X, link = list_link)
     mu_vec <- do.call(c, lapply(mu_list, function(x) x$mu))
     pen_list <- Map(mc_penalization, beta = list_initial$regression,
-                    gamma = gamma, penalization = list_penalization) 
-    pen_vec <- do.call(c, pen_list)
+                    gamma = gamma, penalization = list_penalization)
+    ## pen_vec <- do.call(c, pen_list)
+    ## pen_vec2 <- lasso2(gamma = gamma, beta = unlist(list_initial$regression))
+    pen_vec <- do.call(c, lapply(pen_list, function(x) x$first))
+    pen_vec2 <- do.call(c, lapply(pen_list, function(x) x$second))
     D <- bdiag(lapply(mu_list, function(x) x$D))
     Cfeatures <- mc_build_C(list_mu = mu_list, list_Ntrial = list_Ntrial,
                             rho = list_initial$rho,
@@ -224,13 +238,15 @@ fit_mcglm <- function(list_initial, list_penalization, gamma = gamma, list_link,
                             compute_derivative_beta = FALSE)
     beta_temp2 <- mc_quasi_score(D = D, inv_C = Cfeatures$inv_C,
                                  y_vec = y_vec, mu_vec = mu_vec, W = W,
-                                 pen_vec = pen_vec)
+                                 pen_vec = pen_vec, pen_vec2 = pen_vec2)
     inv_J_beta <- solve(beta_temp2$Sensitivity)
 
     cov_temp <- mc_pearson(y_vec = y_vec, mu_vec = mu_vec,
                            Cfeatures = Cfeatures, inv_J_beta = inv_J_beta,
                            D = D, correct = correct,
-                           compute_variability = TRUE, W = W)
+                           compute_variability = TRUE, W = W,
+                           pen_vec_cov = pen_vec_cov,
+                           pen_vec2_cov = pen_vec2_cov)
 #### Here I need to compute the cross-sensitivity and variability
     inv_CW <- Cfeatures$inv_C%*%W
     Product_beta <- lapply(Cfeatures$D_C_beta, mc_multiply,
