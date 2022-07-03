@@ -107,15 +107,22 @@ fit_mcglm <- function(list_initial, list_penalization, list_penalization_cov,
                        offset = list_offset, X = list_X, link = list_link)
         mu_vec <- do.call(c, lapply(mu_list, function(x) x$mu))
         pen_list <- Map(mc_penalization, beta = list_initial$regression,
-                        gamma = gamma, penalization = list_penalization)
-        pen_list_cov <- Map(mc_penalization, beta = list_initial$tau,
-                            gamma = gamma_cov, penalization = list_penalization_cov)
-        ## pen_vec <- do.call(c, pen_list)
+                        gamma = gamma, penalization = list_penalization,
+                        list_X = list_X)
+        pen_list_cov <- Map(mc_penalization_cov,
+                            beta = list_initial$tau,
+                            gamma = gamma_cov,
+                            penalization = list_penalization_cov,
+                            list_Z = list_Z)
         pen_vec <- do.call(c, lapply(pen_list, function(x) x$first))
         pen_vec2 <- do.call(c, lapply(pen_list, function(x) x$second))
         pen_vec_cov <- do.call(c, lapply(pen_list_cov, function(x) x$first))
         pen_vec2_cov <- do.call(c, lapply(pen_list_cov, function(x) x$second))
-        ## pen_vec2 <- lasso2(gamma = gamma, beta = unlist(list_initial$regression))
+        if (n_resp > 1) {
+            pen_vec_cov <- c(rep(0, n_resp), pen_vec_cov)
+            pen_vec2_cov <- c(rep(0, n_resp), pen_vec2_cov)
+        }
+
         D <- bdiag(lapply(mu_list, function(x) x$D))
                                         # Step 1.2 - Computing the inverse of C matrix.
                                         # I should improve this step.
@@ -220,7 +227,8 @@ fit_mcglm <- function(list_initial, list_penalization, list_penalization_cov,
                    offset = list_offset, X = list_X, link = list_link)
     mu_vec <- do.call(c, lapply(mu_list, function(x) x$mu))
     pen_list <- Map(mc_penalization, beta = list_initial$regression,
-                    gamma = gamma, penalization = list_penalization)
+                    gamma = gamma, penalization = list_penalization,
+                    list_X = list_X)
     ## pen_vec <- do.call(c, pen_list)
     ## pen_vec2 <- lasso2(gamma = gamma, beta = unlist(list_initial$regression))
     pen_vec <- do.call(c, lapply(pen_list, function(x) x$first))
