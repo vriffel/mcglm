@@ -119,8 +119,8 @@ fit_mcglm <- function(list_initial, list_penalization, list_penalization_cov,
         pen_vec_cov <- do.call(c, lapply(pen_list_cov, function(x) x$first))
         pen_vec2_cov <- do.call(c, lapply(pen_list_cov, function(x) x$second))
         if (n_resp > 1) {
-            pen_vec_cov <- c(rep(0, n_resp), pen_vec_cov)
-            pen_vec2_cov <- c(rep(0, n_resp), pen_vec2_cov)
+            pen_vec_cov <- c(rep(0, n_resp*(n_resp - 1)/2), pen_vec_cov)
+            pen_vec2_cov <- c(rep(0, n_resp*(n_resp - 1)/2), pen_vec2_cov)
         }
 
         D <- bdiag(lapply(mu_list, function(x) x$D))
