@@ -183,7 +183,9 @@ fit_mcglm <- function(list_initial, list_penalization, list_penalization_cov,
                                    inv_J_beta = inv_J_beta, D = D,
                                    correct = correct,
                                    compute_sensitivity = FALSE,
-                                   compute_variability = FALSE, W = W)
+                                   compute_variability = FALSE, W = W,
+                                   pen_vec_cov = pen_vec_cov,
+                                   pen_vec2_cov = pen_vec2_cov)
             step <- tuning * cov_temp$Score
         }
         if (method == "rc") {
@@ -191,7 +193,9 @@ fit_mcglm <- function(list_initial, list_penalization, list_penalization_cov,
                                    Cfeatures = Cfeatures,
                                    inv_J_beta = inv_J_beta, D = D,
                                    correct = correct,
-                                   compute_variability = TRUE, W = W)
+                                   compute_variability = TRUE, W = W,
+                                   pen_vec_cov = pen_vec_cov,
+                                   pen_vec2_cov = pen_vec2_cov)
             step <- solve(tuning * cov_temp$Score %*% t(cov_temp$Score)
                           %*% solve(cov_temp$Variability) %*%
                               cov_temp$Sensitivity + cov_temp$Sensitivity)%*% cov_temp$Score
